@@ -1,6 +1,6 @@
 [package]
 name = "cli-denoiser"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "CLI proxy that strips terminal noise for LLM agents. Zero false positives."
 license = "Apache-2.0"
