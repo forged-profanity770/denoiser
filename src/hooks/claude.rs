@@ -75,7 +75,8 @@ pub fn install() -> InstallResult {
         .entry("PostToolUse")
         .or_insert_with(|| serde_json::json!([]));
 
-    let hook_entry = serde_json::json!({
+    // Hook into Bash tool (primary: terminal output filtering)
+    let bash_hook = serde_json::json!({
         "matcher": "Bash",
         "hooks": [{
             "type": "command",
@@ -84,8 +85,30 @@ pub fn install() -> InstallResult {
         }]
     });
 
+    // Hook into Read tool (RTK gap: native tool filtering)
+    let read_hook = serde_json::json!({
+        "matcher": "Read",
+        "hooks": [{
+            "type": "command",
+            "command": "cli-denoiser --hook-mode",
+            "description": "cli-denoiser: filter noise from file reads"
+        }]
+    });
+
+    // Hook into Grep tool (RTK gap: native tool filtering)
+    let grep_hook = serde_json::json!({
+        "matcher": "Grep",
+        "hooks": [{
+            "type": "command",
+            "command": "cli-denoiser --hook-mode",
+            "description": "cli-denoiser: filter noise from grep results"
+        }]
+    });
+
     if let Some(arr) = post_tool.as_array_mut() {
-        arr.push(hook_entry);
+        arr.push(bash_hook);
+        arr.push(read_hook);
+        arr.push(grep_hook);
     }
 
     match write_json(&path, &settings) {

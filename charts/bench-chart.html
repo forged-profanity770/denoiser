@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLI Denoiser - Benchmark Results</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #010101;
+    color: #e0e0e0;
+    font-family: 'Geist Sans', -apple-system, sans-serif;
+    padding: 40px;
+  }
+  h1 { font-size: 28px; color: #fff; margin-bottom: 8px; }
+  .subtitle { color: #888; font-size: 14px; margin-bottom: 32px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
+  .card {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .card h2 { font-size: 16px; color: #aaa; margin-bottom: 16px; }
+  .stat-row { display: flex; gap: 24px; margin-bottom: 24px; }
+  .stat {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 12px;
+    padding: 20px;
+    flex: 1;
+    text-align: center;
+  }
+  .stat .value { font-size: 36px; font-weight: 700; color: #05a0ef; }
+  .stat .label { font-size: 12px; color: #888; margin-top: 4px; }
+  .stat.green .value { color: #10b981; }
+  .stat.amber .value { color: #f59e0b; }
+  .full-width { grid-column: 1 / -1; }
+  canvas { max-height: 400px; }
+</style>
+</head>
+<body>
+<h1>CLI Denoiser Benchmark Results</h1>
+<p class="subtitle" id="meta">Loading...</p>
+
+<div class="stat-row">
+  <div class="stat green"><div class="value" id="savings-pct">--</div><div class="label">Overall Savings</div></div>
+  <div class="stat"><div class="value" id="tokens-saved">--</div><div class="label">Tokens Saved</div></div>
+  <div class="stat amber"><div class="value" id="avg-latency">--</div><div class="label">Avg Latency</div></div>
+  <div class="stat green"><div class="value" id="false-pos">--</div><div class="label">False Positives</div></div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h2>Token Savings by Scenario</h2>
+    <canvas id="savingsChart"></canvas>
+  </div>
+  <div class="card">
+    <h2>Original vs Filtered (tokens)</h2>
+    <canvas id="comparisonChart"></canvas>
+  </div>
+  <div class="card full-width">
+    <h2>Savings Breakdown</h2>
+    <canvas id="breakdownChart"></canvas>
+  </div>
+</div>
+
+<script>
+async function loadData() {
+  let data;
+  try {
+    const resp = await fetch('bench-results.json');
+    data = await resp.json();
+  } catch {
+    document.getElementById('meta').textContent = 'Failed to load bench-results.json';
+    return;
+  }
+
+  const t = data.totals;
+  document.getElementById('meta').textContent =
+    `v${data.version} | ${new Date(data.timestamp).toLocaleDateString()} | ${data.scenarios.length} scenarios`;
+  document.getElementById('savings-pct').textContent = t.overall_savings_percent.toFixed(1) + '%';
+  document.getElementById('tokens-saved').textContent = t.total_savings.toLocaleString();
+  document.getElementById('avg-latency').textContent = t.avg_latency_us.toFixed(0) + 'us';
+  document.getElementById('false-pos').textContent = t.zero_false_positives ? 'ZERO' : 'DETECTED';
+
+  const labels = data.scenarios.map(s => s.name);
+  const savings = data.scenarios.map(s => s.savings_percent);
+  const original = data.scenarios.map(s => s.original_tokens);
+  const filtered = data.scenarios.map(s => s.filtered_tokens);
+  const saved = data.scenarios.map(s => s.savings_tokens);
+
+  const colors = {
+    blue: '#05a0ef',
+    green: '#10b981',
+    amber: '#f59e0b',
+    red: '#ef4444',
+    dim: '#333',
+  };
+
+  new Chart(document.getElementById('savingsChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Savings %',
+        data: savings,
+        backgroundColor: savings.map(v => v > 50 ? colors.green : v > 20 ? colors.amber : colors.blue),
+        borderRadius: 4,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { max: 100, ticks: { color: '#888', callback: v => v + '%' }, grid: { color: '#222' } },
+        y: { ticks: { color: '#aaa', font: { size: 11 } }, grid: { display: false } },
+      },
+    },
+  });
+
+  new Chart(document.getElementById('comparisonChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Original', data: original, backgroundColor: colors.dim, borderRadius: 4 },
+        { label: 'Filtered', data: filtered, backgroundColor: colors.blue, borderRadius: 4 },
+      ],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { labels: { color: '#888' } } },
+      scales: {
+        x: { ticks: { color: '#888' }, grid: { color: '#222' } },
+        y: { ticks: { color: '#aaa', font: { size: 11 } }, grid: { display: false } },
+      },
+    },
+  });
+
+  new Chart(document.getElementById('breakdownChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Tokens Saved', data: saved, backgroundColor: colors.green, borderRadius: 4 },
+        { label: 'Tokens Kept', data: filtered, backgroundColor: colors.dim, borderRadius: 4 },
+      ],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: '#888' } } },
+      scales: {
+        x: { stacked: true, ticks: { color: '#aaa', font: { size: 10 } }, grid: { display: false } },
+        y: { stacked: true, ticks: { color: '#888' }, grid: { color: '#222' } },
+      },
+    },
+  });
+}
+
+loadData();
+</script>
+</body>
+</html>

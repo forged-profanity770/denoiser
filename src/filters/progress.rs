@@ -16,9 +16,10 @@ static PROGRESS_PERCENT: LazyLock<Regex> = LazyLock::new(|| {
 static PROGRESS_BAR_CHARS: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"[=\-#>█▓▒░╸╺┃│\|]{5,}").expect("progress bar chars regex valid"));
 
-static SPINNER_CHARS: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏⣾⣽⣻⢿⡿⣟⣯⣷◐◓◑◒|/\-\\]\s").expect("spinner regex valid")
-});
+// Only Unicode spinners -- ASCII |/-\ are too common in code output
+// and would cause false positives on compiler errors, paths, etc.
+static SPINNER_CHARS: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏⣾⣽⣻⢿⡿⣟⣯⣷◐◓◑◒]\s").expect("spinner regex valid"));
 
 /// Detects and collapses progress bars, spinners, and download indicators.
 /// These are purely visual feedback -- an LLM needs only the final state.
@@ -166,7 +167,10 @@ mod tests {
     #[test]
     fn detects_spinner() {
         assert!(is_progress_line("⠋ Installing dependencies"));
-        assert!(is_progress_line("/ Building..."));
+        assert!(is_progress_line("⣾ Building..."));
+        // ASCII spinners (|/-\) are NOT detected to avoid false positives
+        assert!(!is_progress_line("/ Building..."));
+        assert!(!is_progress_line("| something"));
     }
 
     #[test]

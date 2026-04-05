@@ -1,7 +1,10 @@
 pub mod ansi;
+pub mod cargo;
 pub mod dedup;
+pub mod docker;
 pub mod generic;
 pub mod git;
+pub mod kubectl;
 pub mod npm;
 pub mod progress;
 

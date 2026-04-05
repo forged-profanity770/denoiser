@@ -2,10 +2,14 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
+use cli_denoiser::bench;
 use cli_denoiser::filters::ansi::AnsiFilter;
+use cli_denoiser::filters::cargo::CargoFilter;
 use cli_denoiser::filters::dedup::DedupFilter;
+use cli_denoiser::filters::docker::DockerFilter;
 use cli_denoiser::filters::generic::GenericFilter;
 use cli_denoiser::filters::git::GitFilter;
+use cli_denoiser::filters::kubectl::KubectlFilter;
 use cli_denoiser::filters::npm::NpmFilter;
 use cli_denoiser::filters::progress::ProgressFilter;
 use cli_denoiser::filters::{CommandKind, Filter};
@@ -52,6 +56,12 @@ enum Commands {
         #[arg(short, long)]
         command: Option<String>,
     },
+    /// Run benchmark suite and output results
+    Bench {
+        /// Output JSON results to file
+        #[arg(short, long)]
+        output: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -68,6 +78,7 @@ async fn main() -> ExitCode {
         Some(Commands::Uninstall) => run_uninstall(),
         Some(Commands::Gain { days }) => run_gain(days),
         Some(Commands::Filter { command }) => run_filter_stdin(command.as_deref()),
+        Some(Commands::Bench { output }) => run_bench(output.as_deref()),
         None => {
             if cli.args.is_empty() {
                 eprintln!("Usage: cli-denoiser <command> [args...]");
@@ -243,11 +254,39 @@ fn build_pipeline(kind: &CommandKind) -> Pipeline {
     let specific: Box<dyn Filter> = match kind {
         CommandKind::Git => Box::new(GitFilter),
         CommandKind::Npm => Box::new(NpmFilter),
-        _ => Box::new(GenericFilter),
+        CommandKind::Cargo => Box::new(CargoFilter),
+        CommandKind::Docker => Box::new(DockerFilter),
+        CommandKind::Kubectl => Box::new(KubectlFilter),
+        CommandKind::Unknown => Box::new(GenericFilter),
     };
     pipeline.add_filter(specific);
 
     pipeline
+}
+
+fn run_bench(output_path: Option<&str>) -> ExitCode {
+    let results = bench::run_all();
+    let json = match serde_json::to_string_pretty(&results) {
+        Ok(j) => j,
+        Err(e) => {
+            eprintln!("[cli-denoiser] failed to serialize results: {e}");
+            return ExitCode::from(1);
+        }
+    };
+
+    // Print summary to terminal
+    bench::print_summary(&results);
+
+    // Write JSON if output path specified
+    if let Some(path) = output_path {
+        if let Err(e) = std::fs::write(path, &json) {
+            eprintln!("[cli-denoiser] failed to write {path}: {e}");
+            return ExitCode::from(1);
+        }
+        println!("\nJSON results written to: {path}");
+    }
+
+    ExitCode::SUCCESS
 }
 
 fn record_savings(command: &str, run: &stream::FilteredRun) {
