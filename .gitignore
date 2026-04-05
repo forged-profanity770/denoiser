@@ -1,1 +1,9 @@
 /target
+*.db
+.DS_Store
+*.swp
+*.swo
+*~
+.env
+.env.*
+tmp/
