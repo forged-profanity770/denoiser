@@ -9,7 +9,7 @@ Built for [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex 
 ## Benchmark Results
 
 <p align="center">
-  <img src="charts/bench-overview.png" alt="CLI Denoiser Benchmark Overview" width="100%">
+  <img src="https://raw.githubusercontent.com/Orellius/cli-denoiser/main/charts/bench-overview.png" alt="CLI Denoiser Benchmark Overview" width="100%">
 </p>
 
 ### Overall Performance
@@ -24,7 +24,7 @@ Built for [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex 
 ### Scenario Deep Dives
 
 <p align="center">
-  <img src="charts/scenarios-screenshot.png" alt="Scenario Deep Dives" width="100%">
+  <img src="https://raw.githubusercontent.com/Orellius/cli-denoiser/main/charts/scenarios-screenshot.png" alt="Scenario Deep Dives" width="100%">
 </p>
 
 ### Full Benchmark Results
