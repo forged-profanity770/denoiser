@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use rusqlite::Connection;
 
-use super::{CommandSavings, FilterEvent, GainSummary};
+use super::{CommandSavings, DailyStats, FilterEvent, GainSummary};
 
 const DB_FILENAME: &str = "cli-denoiser.db";
 const RETENTION_DAYS: u32 = 90;
@@ -155,6 +155,98 @@ impl TrackerDb {
             top_commands,
             period_days: days,
         })
+    }
+
+    /// Get daily breakdown for the last N days.
+    ///
+    /// # Errors
+    /// Returns `TrackerError` if the query fails.
+    #[allow(clippy::cast_precision_loss)]
+    pub fn daily_report(&self, days: u32) -> Result<Vec<DailyStats>, TrackerError> {
+        let cutoff = chrono::Utc::now() - chrono::Duration::days(i64::from(days));
+        let cutoff_str = cutoff.to_rfc3339();
+
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT DATE(timestamp) as day,
+                        COUNT(*),
+                        SUM(original_tokens),
+                        SUM(filtered_tokens),
+                        SUM(savings)
+                 FROM events
+                 WHERE timestamp >= ?1
+                 GROUP BY day
+                 ORDER BY day DESC",
+            )
+            .map_err(|e| TrackerError::Sqlite {
+                context: "prepare daily report".to_string(),
+                source: e,
+            })?;
+
+        let rows: Vec<DailyStats> = stmt
+            .query_map(rusqlite::params![cutoff_str], |row| {
+                let original: usize = row.get(2)?;
+                let filtered: usize = row.get(3)?;
+                let savings: usize = row.get(4)?;
+                let pct = if original == 0 {
+                    0.0
+                } else {
+                    (savings as f64 / original as f64) * 100.0
+                };
+                Ok(DailyStats {
+                    date: row.get(0)?,
+                    events: row.get(1)?,
+                    original_tokens: original,
+                    filtered_tokens: filtered,
+                    savings,
+                    savings_percent: pct,
+                })
+            })
+            .map_err(|e| TrackerError::Sqlite {
+                context: "query daily report".to_string(),
+                source: e,
+            })?
+            .filter_map(Result::ok)
+            .collect();
+
+        Ok(rows)
+    }
+
+    /// Get recent event log (last N events).
+    ///
+    /// # Errors
+    /// Returns `TrackerError` if the query fails.
+    pub fn recent_events(&self, limit: u32) -> Result<Vec<FilterEvent>, TrackerError> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT command, original_tokens, filtered_tokens, savings, timestamp
+                 FROM events ORDER BY id DESC LIMIT ?1",
+            )
+            .map_err(|e| TrackerError::Sqlite {
+                context: "prepare recent events".to_string(),
+                source: e,
+            })?;
+
+        let rows: Vec<FilterEvent> = stmt
+            .query_map(rusqlite::params![limit], |row| {
+                Ok(FilterEvent {
+                    command: row.get(0)?,
+                    original_tokens: row.get(1)?,
+                    filtered_tokens: row.get(2)?,
+                    savings: row.get(3)?,
+                    timestamp: row.get(4)?,
+                })
+            })
+            .map_err(|e| TrackerError::Sqlite {
+                context: "query recent events".to_string(),
+                source: e,
+            })?
+            .filter_map(Result::ok)
+            .collect();
+
+        Ok(rows)
     }
 
     /// Prune events older than retention period.

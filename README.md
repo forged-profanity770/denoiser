@@ -72,9 +72,35 @@ CLI Denoiser runs a two-pass filter pipeline:
 
 ## Install
 
+### From crates.io (recommended)
+
+```bash
+cargo install cli-denoiser
+```
+
+### From GitHub releases
+
+Download the latest binary for your platform from [Releases](https://github.com/Orellius/cli-denoiser/releases), extract, and add to your PATH:
+
+```bash
+# macOS (Apple Silicon)
+curl -L https://github.com/Orellius/cli-denoiser/releases/latest/download/cli-denoiser-aarch64-apple-darwin.tar.gz | tar xz
+sudo mv cli-denoiser /usr/local/bin/
+
+# macOS (Intel)
+curl -L https://github.com/Orellius/cli-denoiser/releases/latest/download/cli-denoiser-x86_64-apple-darwin.tar.gz | tar xz
+sudo mv cli-denoiser /usr/local/bin/
+
+# Linux (x86_64)
+curl -L https://github.com/Orellius/cli-denoiser/releases/latest/download/cli-denoiser-x86_64-unknown-linux-gnu.tar.gz | tar xz
+sudo mv cli-denoiser /usr/local/bin/
+```
+
 ### From source
 
 ```bash
+git clone https://github.com/Orellius/cli-denoiser.git
+cd cli-denoiser
 cargo install --path .
 ```
 
@@ -199,4 +225,4 @@ cargo build --release
 
 ## License
 
-MIT
+Apache-2.0. See [LICENSE](LICENSE).

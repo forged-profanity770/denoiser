@@ -33,6 +33,10 @@ struct Cli {
     #[arg(long, hide = true)]
     hook_mode: bool,
 
+    /// Show debug output (which filters matched, what was dropped)
+    #[arg(long, global = true)]
+    debug: bool,
+
     /// Command to execute and filter
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     args: Vec<String>,
@@ -62,6 +66,18 @@ enum Commands {
         #[arg(short, long)]
         output: Option<String>,
     },
+    /// Daily savings report with trend data
+    Report {
+        /// Number of days to show
+        #[arg(short, long, default_value = "7")]
+        days: u32,
+    },
+    /// Show recent filter event log
+    Log {
+        /// Number of recent events to show
+        #[arg(short = 'n', long, default_value = "20")]
+        limit: u32,
+    },
 }
 
 #[tokio::main]
@@ -73,30 +89,36 @@ async fn main() -> ExitCode {
         return run_hook_mode();
     }
 
+    let debug = cli.debug;
+
     match cli.command {
         Some(Commands::Install) => run_install(),
         Some(Commands::Uninstall) => run_uninstall(),
         Some(Commands::Gain { days }) => run_gain(days),
-        Some(Commands::Filter { command }) => run_filter_stdin(command.as_deref()),
+        Some(Commands::Filter { command }) => run_filter_stdin(command.as_deref(), debug),
         Some(Commands::Bench { output }) => run_bench(output.as_deref()),
+        Some(Commands::Report { days }) => run_report(days),
+        Some(Commands::Log { limit }) => run_log(limit),
         None => {
             if cli.args.is_empty() {
                 eprintln!("Usage: cli-denoiser <command> [args...]");
                 eprintln!("       cli-denoiser install");
                 eprintln!("       cli-denoiser gain");
+                eprintln!("       cli-denoiser report");
+                eprintln!("       cli-denoiser log");
                 eprintln!("Run 'cli-denoiser --help' for more info.");
                 return ExitCode::from(1);
             }
-            run_command(&cli.args).await
+            run_command(&cli.args, debug).await
         }
     }
 }
 
-async fn run_command(args: &[String]) -> ExitCode {
+async fn run_command(args: &[String], debug: bool) -> ExitCode {
     let command = &args[0];
     let cmd_args = &args[1..];
     let kind = CommandKind::detect(command);
-    let pipeline = build_pipeline(&kind);
+    let pipeline = build_pipeline(&kind, debug);
 
     match stream::run_filtered(command, cmd_args, &pipeline).await {
         Ok(run) => {
@@ -127,7 +149,7 @@ fn run_hook_mode() -> ExitCode {
         return ExitCode::from(1);
     }
 
-    let pipeline = build_pipeline(&CommandKind::Unknown);
+    let pipeline = build_pipeline(&CommandKind::Unknown, false);
     let result = pipeline.process(&input);
 
     print!("{}", result.output);
@@ -142,7 +164,7 @@ fn run_hook_mode() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn run_filter_stdin(command_hint: Option<&str>) -> ExitCode {
+fn run_filter_stdin(command_hint: Option<&str>, debug: bool) -> ExitCode {
     let mut input = String::new();
     if let Err(e) = std::io::Read::read_to_string(&mut std::io::stdin(), &mut input) {
         eprintln!("[cli-denoiser] failed to read stdin: {e}");
@@ -150,7 +172,7 @@ fn run_filter_stdin(command_hint: Option<&str>) -> ExitCode {
     }
 
     let kind = command_hint.map_or(CommandKind::Unknown, CommandKind::detect);
-    let pipeline = build_pipeline(&kind);
+    let pipeline = build_pipeline(&kind, debug);
     let result = pipeline.process(&input);
 
     print!("{}", result.output);
@@ -242,8 +264,9 @@ fn run_gain(days: u32) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn build_pipeline(kind: &CommandKind) -> Pipeline {
+fn build_pipeline(kind: &CommandKind, debug: bool) -> Pipeline {
     let mut pipeline = Pipeline::new();
+    pipeline.set_debug(debug);
 
     // Universal filters (always applied)
     pipeline.add_filter(Box::new(AnsiFilter));
@@ -284,6 +307,110 @@ fn run_bench(output_path: Option<&str>) -> ExitCode {
             return ExitCode::from(1);
         }
         println!("\nJSON results written to: {path}");
+    }
+
+    ExitCode::SUCCESS
+}
+
+fn run_report(days: u32) -> ExitCode {
+    let db = match TrackerDb::open() {
+        Ok(db) => db,
+        Err(e) => {
+            eprintln!("[cli-denoiser] failed to open tracker: {e}");
+            return ExitCode::from(1);
+        }
+    };
+
+    let daily = match db.daily_report(days) {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("[cli-denoiser] failed to query report: {e}");
+            return ExitCode::from(1);
+        }
+    };
+
+    if daily.is_empty() {
+        println!("No filter events in the last {days} days.");
+        println!("Run commands through cli-denoiser to start tracking.");
+        return ExitCode::SUCCESS;
+    }
+
+    println!("cli-denoiser daily report (last {days} days)\n");
+    println!(
+        "  {:<12} {:>6} {:>10} {:>10} {:>10} {:>8}",
+        "Date", "Events", "Original", "Filtered", "Saved", "Savings"
+    );
+    println!("  {}", "-".repeat(62));
+
+    for day in &daily {
+        println!(
+            "  {:<12} {:>6} {:>10} {:>10} {:>10} {:>7.1}%",
+            day.date,
+            day.events,
+            format_number(day.original_tokens),
+            format_number(day.filtered_tokens),
+            format_number(day.savings),
+            day.savings_percent
+        );
+    }
+
+    let total_events: usize = daily.iter().map(|d| d.events).sum();
+    let total_savings: usize = daily.iter().map(|d| d.savings).sum();
+    println!("  {}", "-".repeat(62));
+    println!(
+        "  {:<12} {:>6} {:>10} tokens saved total",
+        "TOTAL",
+        total_events,
+        format_number(total_savings)
+    );
+
+    ExitCode::SUCCESS
+}
+
+fn run_log(limit: u32) -> ExitCode {
+    let db = match TrackerDb::open() {
+        Ok(db) => db,
+        Err(e) => {
+            eprintln!("[cli-denoiser] failed to open tracker: {e}");
+            return ExitCode::from(1);
+        }
+    };
+
+    let events = match db.recent_events(limit) {
+        Ok(e) => e,
+        Err(e) => {
+            eprintln!("[cli-denoiser] failed to query events: {e}");
+            return ExitCode::from(1);
+        }
+    };
+
+    if events.is_empty() {
+        println!("No filter events recorded yet.");
+        return ExitCode::SUCCESS;
+    }
+
+    println!(
+        "  {:<20} {:>10} {:>10} {:>8} {:>8}",
+        "Timestamp", "Command", "Original", "Saved", "Savings"
+    );
+    println!("  {}", "-".repeat(62));
+
+    for event in &events {
+        let ts = event
+            .timestamp
+            .get(..19)
+            .unwrap_or(&event.timestamp)
+            .replace('T', " ");
+        #[allow(clippy::cast_precision_loss)]
+        let pct = if event.original_tokens == 0 {
+            0.0
+        } else {
+            (event.savings as f64 / event.original_tokens as f64) * 100.0
+        };
+        println!(
+            "  {:<20} {:>10} {:>10} {:>8} {:>7.1}%",
+            ts, event.command, event.original_tokens, event.savings, pct
+        );
     }
 
     ExitCode::SUCCESS

@@ -45,3 +45,14 @@ pub struct CommandSavings {
     pub events: usize,
     pub savings: usize,
 }
+
+/// Daily stats for the report command.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct DailyStats {
+    pub date: String,
+    pub events: usize,
+    pub original_tokens: usize,
+    pub filtered_tokens: usize,
+    pub savings: usize,
+    pub savings_percent: f64,
+}

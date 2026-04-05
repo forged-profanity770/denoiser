@@ -5,6 +5,7 @@ use crate::filters::{Filter, FilterResult};
 #[derive(Default)]
 pub struct Pipeline {
     filters: Vec<Box<dyn Filter>>,
+    debug: bool,
 }
 
 impl Pipeline {
@@ -12,7 +13,12 @@ impl Pipeline {
     pub fn new() -> Self {
         Self {
             filters: Vec::new(),
+            debug: false,
         }
+    }
+
+    pub fn set_debug(&mut self, debug: bool) {
+        self.debug = debug;
     }
 
     pub fn add_filter(&mut self, filter: Box<dyn Filter>) {
@@ -25,11 +31,34 @@ impl Pipeline {
     pub fn process(&self, input: &str) -> PipelineResult {
         let mut lines: Vec<String> = input.lines().map(String::from).collect();
         let original_tokens = estimate_tokens(input);
+        let mut debug_log: Vec<String> = Vec::new();
 
         for filter in &self.filters {
             let mut new_lines = Vec::with_capacity(lines.len());
             for line in &lines {
-                match filter.filter_line(line) {
+                let result = filter.filter_line(line);
+                if self.debug {
+                    let action = match &result {
+                        FilterResult::Keep => "KEEP",
+                        FilterResult::Drop => "DROP",
+                        FilterResult::Replace(_) => "REPLACE",
+                        FilterResult::Uncertain => "UNCERTAIN(keep)",
+                    };
+                    if !matches!(result, FilterResult::Keep) {
+                        let preview = if line.len() > 60 {
+                            format!("{}...", &line[..57])
+                        } else {
+                            line.clone()
+                        };
+                        debug_log.push(format!(
+                            "[debug] {}: {} | {}",
+                            filter.name(),
+                            action,
+                            preview
+                        ));
+                    }
+                }
+                match result {
                     FilterResult::Replace(replacement) => new_lines.push(replacement),
                     FilterResult::Drop => {}
                     FilterResult::Keep | FilterResult::Uncertain => {
@@ -42,7 +71,22 @@ impl Pipeline {
 
         // Second pass: block-level filters
         for filter in &self.filters {
+            let before = lines.len();
             lines = filter.filter_block(&lines);
+            if self.debug && lines.len() != before {
+                debug_log.push(format!(
+                    "[debug] {}: block pass {} -> {} lines",
+                    filter.name(),
+                    before,
+                    lines.len()
+                ));
+            }
+        }
+
+        if self.debug && !debug_log.is_empty() {
+            for entry in &debug_log {
+                eprintln!("{entry}");
+            }
         }
 
         let output = lines.join("\n");
