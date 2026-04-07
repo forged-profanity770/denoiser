@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "timestamp": "2026-04-05T00:58:17.840176+00:00",
+  "timestamp": "2026-04-05T01:04:10.781234+00:00",
   "scenarios": [
     {
       "name": "git push (transfer stats)",
@@ -9,7 +9,7 @@
       "filtered_tokens": 77,
       "savings_tokens": 89,
       "savings_percent": 53.6,
-      "latency_us": 839.0,
+      "latency_us": 6730.0,
       "original_lines": 14,
       "filtered_lines": 5,
       "signal_preserved": true
@@ -21,7 +21,7 @@
       "filtered_tokens": 8,
       "savings_tokens": 77,
       "savings_percent": 90.6,
-      "latency_us": 14.0,
+      "latency_us": 259.0,
       "original_lines": 7,
       "filtered_lines": 1,
       "signal_preserved": true
@@ -33,7 +33,7 @@
       "filtered_tokens": 63,
       "savings_tokens": 186,
       "savings_percent": 74.7,
-      "latency_us": 194.0,
+      "latency_us": 2426.0,
       "original_lines": 20,
       "filtered_lines": 12,
       "signal_preserved": true
@@ -45,7 +45,7 @@
       "filtered_tokens": 19,
       "savings_tokens": 0,
       "savings_percent": 0.0,
-      "latency_us": 2.0,
+      "latency_us": 18.0,
       "original_lines": 3,
       "filtered_lines": 3,
       "signal_preserved": true
@@ -57,7 +57,7 @@
       "filtered_tokens": 17,
       "savings_tokens": 214,
       "savings_percent": 92.6,
-      "latency_us": 201.0,
+      "latency_us": 2495.0,
       "original_lines": 27,
       "filtered_lines": 1,
       "signal_preserved": true
@@ -69,7 +69,7 @@
       "filtered_tokens": 158,
       "savings_tokens": 12,
       "savings_percent": 7.1,
-      "latency_us": 14.0,
+      "latency_us": 163.0,
       "original_lines": 23,
       "filtered_lines": 22,
       "signal_preserved": true
@@ -81,7 +81,7 @@
       "filtered_tokens": 103,
       "savings_tokens": 86,
       "savings_percent": 45.5,
-      "latency_us": 142.0,
+      "latency_us": 1706.0,
       "original_lines": 29,
       "filtered_lines": 15,
       "signal_preserved": true
@@ -93,7 +93,7 @@
       "filtered_tokens": 23,
       "savings_tokens": 93,
       "savings_percent": 80.2,
-      "latency_us": 18.0,
+      "latency_us": 256.0,
       "original_lines": 14,
       "filtered_lines": 3,
       "signal_preserved": true
@@ -105,7 +105,7 @@
       "filtered_tokens": 69,
       "savings_tokens": 93,
       "savings_percent": 57.4,
-      "latency_us": 274.0,
+      "latency_us": 2464.0,
       "original_lines": 8,
       "filtered_lines": 4,
       "signal_preserved": true
@@ -117,7 +117,7 @@
       "filtered_tokens": 41,
       "savings_tokens": 60,
       "savings_percent": 59.4,
-      "latency_us": 13.0,
+      "latency_us": 136.0,
       "original_lines": 10,
       "filtered_lines": 5,
       "signal_preserved": true
@@ -129,7 +129,7 @@
       "filtered_tokens": 68,
       "savings_tokens": 2,
       "savings_percent": 2.9,
-      "latency_us": 7.0,
+      "latency_us": 49.0,
       "original_lines": 10,
       "filtered_lines": 10,
       "signal_preserved": true
@@ -140,7 +140,7 @@
     "total_filtered_tokens": 646,
     "total_savings": 912,
     "overall_savings_percent": 58.5,
-    "avg_latency_us": 156.2,
+    "avg_latency_us": 1518.4,
     "zero_false_positives": true
   }
 }
