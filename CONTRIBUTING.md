@@ -5,8 +5,8 @@ Contributions are welcome. Here's how to get started.
 ## Setup
 
 ```bash
-git clone https://github.com/Orellius/cli-denoiser.git
-cd cli-denoiser
+git clone https://github.com/Orellius/orellius-cli-denoiser.git
+cd orellius-cli-denoiser
 cargo build
 cargo test
 ```
@@ -51,4 +51,4 @@ CLI Denoiser's filter pipeline is extensible. To add a new command filter:
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the [Apache-2.0 License](LICENSE).
+By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
