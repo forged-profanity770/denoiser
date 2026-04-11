@@ -9,7 +9,7 @@ Built for [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex 
 ## Benchmark Results
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Orellius/cli-denoiser/main/charts/bench-overview.png" alt="CLI Denoiser Benchmark Overview" width="100%">
+  <img src="https://raw.githubusercontent.com/Orellius/orellius-cli-denoiser/main/charts/bench-overview.png" alt="CLI Denoiser Benchmark Overview" width="100%">
 </p>
 
 ### Overall Performance
@@ -24,7 +24,7 @@ Built for [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex 
 ### Scenario Deep Dives
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Orellius/cli-denoiser/main/charts/scenarios-screenshot.png" alt="Scenario Deep Dives" width="100%">
+  <img src="https://raw.githubusercontent.com/Orellius/orellius-cli-denoiser/main/charts/scenarios-screenshot.png" alt="Scenario Deep Dives" width="100%">
 </p>
 
 ### Full Benchmark Results
@@ -80,27 +80,27 @@ cargo install cli-denoiser
 
 ### From GitHub releases
 
-Download the latest binary for your platform from [Releases](https://github.com/Orellius/cli-denoiser/releases), extract, and add to your PATH:
+Download the latest binary for your platform from [Releases](https://github.com/Orellius/orellius-cli-denoiser/releases), extract, and add to your PATH:
 
 ```bash
 # macOS (Apple Silicon)
-curl -L https://github.com/Orellius/cli-denoiser/releases/latest/download/cli-denoiser-aarch64-apple-darwin.tar.gz | tar xz
+curl -L https://github.com/Orellius/orellius-cli-denoiser/releases/latest/download/cli-denoiser-aarch64-apple-darwin.tar.gz | tar xz
 sudo mv cli-denoiser /usr/local/bin/
 
 # macOS (Intel)
-curl -L https://github.com/Orellius/cli-denoiser/releases/latest/download/cli-denoiser-x86_64-apple-darwin.tar.gz | tar xz
+curl -L https://github.com/Orellius/orellius-cli-denoiser/releases/latest/download/cli-denoiser-x86_64-apple-darwin.tar.gz | tar xz
 sudo mv cli-denoiser /usr/local/bin/
 
 # Linux (x86_64)
-curl -L https://github.com/Orellius/cli-denoiser/releases/latest/download/cli-denoiser-x86_64-unknown-linux-gnu.tar.gz | tar xz
+curl -L https://github.com/Orellius/orellius-cli-denoiser/releases/latest/download/cli-denoiser-x86_64-unknown-linux-gnu.tar.gz | tar xz
 sudo mv cli-denoiser /usr/local/bin/
 ```
 
 ### From source
 
 ```bash
-git clone https://github.com/Orellius/cli-denoiser.git
-cd cli-denoiser
+git clone https://github.com/Orellius/orellius-cli-denoiser.git
+cd orellius-cli-denoiser
 cargo install --path .
 ```
 
@@ -229,4 +229,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, guidelines, and how to add new
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). Do whatever you want with it.
