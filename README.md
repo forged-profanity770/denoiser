@@ -4,285 +4,58 @@
     <strong>Strip terminal noise for LLM agents. Zero false positives.</strong>
   </p>
   <p align="center">
+    <img src="https://img.shields.io/badge/status-archived-lightgrey" alt="Archived">
     <a href="https://crates.io/crates/cli-denoiser"><img src="https://img.shields.io/crates/v/cli-denoiser.svg?style=flat-square&logo=rust" alt="crates.io"></a>
-    <a href="https://github.com/Orellius/cli-denoiser/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Orellius/cli-denoiser/ci.yml?branch=main&style=flat-square&logo=github&label=CI" alt="CI"></a>
-    <a href="https://github.com/Orellius/cli-denoiser/blob/main/LICENSE"><img src="https://img.shields.io/crates/l/cli-denoiser?style=flat-square" alt="License: MIT"></a>
-    <a href="https://crates.io/crates/cli-denoiser"><img src="https://img.shields.io/crates/d/cli-denoiser?style=flat-square&label=downloads" alt="Downloads"></a>
+    <img src="https://img.shields.io/crates/l/cli-denoiser?style=flat-square" alt="License: MIT">
   </p>
 </p>
 
-<br>
+---
 
-CLI Denoiser is a Rust-powered filter proxy that removes terminal noise from command output before it reaches your LLM agent. It saves tokens, reduces context pollution, and guarantees zero false positives — signal always passes through.
-
-Built for [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex CLI](https://github.com/openai/codex), [Gemini CLI](https://github.com/google-gemini/gemini-cli), and any agentic coding workflow.
+> **This project is archived.** It works, but is no longer actively maintained. The crate remains available on [crates.io](https://crates.io/crates/cli-denoiser).
 
 ---
 
-## Benchmark Results
+## What it was
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Orellius/orellius-cli-denoiser/main/charts/bench-overview.png" alt="CLI Denoiser Benchmark Overview" width="100%">
-</p>
+A Rust-powered filter proxy that removes terminal noise (progress bars, ANSI codes, duplicate lines, verbose build output) from command output before it reaches LLM agents. Built for Claude Code, Codex CLI, and Gemini CLI.
+
+Two-pass pipeline: line-level classification then block-level collapsing. Zero false positives enforced via the type system — uncertain lines always pass through.
+
+## Results
 
 | Metric | Value |
 |--------|-------|
-| **Overall Savings** | 58.5% |
-| **Tokens Saved** | 912 across 11 scenarios |
+| **Overall Savings** | 58.5% token reduction |
 | **Avg Latency** | ~1.5ms per filter pass |
-| **False Positives** | **ZERO** |
+| **False Positives** | Zero |
 
-<details>
-<summary><strong>Scenario Deep Dives</strong></summary>
+Filters for: git, npm, cargo, docker, kubectl, plus universal ANSI/progress/dedup filters.
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Orellius/orellius-cli-denoiser/main/charts/scenarios-screenshot.png" alt="Scenario Deep Dives" width="100%">
-</p>
+## What I built
 
-| Scenario | Original | Filtered | Saved | Savings | Signal |
-|----------|----------|----------|-------|---------|--------|
-| cargo build (69 crates) | 231 | 17 | 214 | **92.6%** | OK |
-| git clone (verbose) | 85 | 8 | 77 | **90.6%** | OK |
-| docker pull (layer progress) | 116 | 23 | 93 | **80.2%** | OK |
-| npm install (deprecation spam) | 249 | 63 | 186 | **74.7%** | OK |
-| mixed ANSI + progress | 101 | 41 | 60 | **59.4%** | OK |
-| kubectl events (scheduling noise) | 162 | 69 | 93 | **57.4%** | OK |
-| git push (transfer stats) | 166 | 77 | 89 | **53.6%** | OK |
-| docker build (cached layers) | 189 | 103 | 86 | **45.5%** | OK |
-| cargo test (with failures) | 170 | 158 | 12 | **7.1%** | OK |
-| pure signal (no noise) | 70 | 68 | 2 | **2.9%** | OK |
-| npm install (clean, no warnings) | 19 | 19 | 0 | **0.0%** | OK |
+- **Type-safe filter pipeline** with `Keep`/`Drop`/`Replace`/`Uncertain` — `Uncertain` always preserves the line, making false positives structurally impossible
+- **Block collapsing** — 47 `Compiling` lines become `[compiled 47 crates]`
+- **Auto-install hooks** for Claude Code, Codex CLI, Gemini CLI
+- **Benchmark suite** with signal verification — every scenario has required strings that must survive filtering
+- **CLI subcommands**: `gain` (token savings), `report` (daily stats), `log` (event history), `bench` (run benchmarks)
 
-> **Signal column**: every scenario has required signal strings that must appear in filtered output. `OK` means zero information was lost. The benchmark catches false positives automatically.
+## What I learned
 
-</details>
+- Designing filter pipelines where correctness is enforced by the type system, not by testing
+- Integrating with multiple agentic coding tools via their hook systems
+- Publishing and maintaining a Rust crate on crates.io
+- Building CI/CD with cross-platform binary releases
 
 ---
 
-## How It Works
+## Tech stack
 
-CLI Denoiser runs a two-pass filter pipeline:
-
-1. **Line-level filtering** — each line is classified as `Keep`, `Drop`, `Replace`, or `Uncertain`. If any filter returns `Uncertain`, the line passes through (zero false positive guarantee baked into the type system).
-
-2. **Block-level collapsing** — consecutive noise lines are collapsed into summaries:
-   - `Compiling serde v1.0.228` x47 lines becomes `[compiled 47 crates]`
-   - Per-layer Docker pull progress becomes `[pulled 12 layers]`
-   - Repeated deprecation warnings become `[8 deprecation warnings]`
-
-### Filter Pipeline
-
-```
-stdin/command
-     |
-     v
- ┌───────────────────┐
- │ ANSI Filter        │  Strip escape codes (always first)
- └───────────────────┘
-     |
-     v
- ┌���──────────────────┐
- │ Progress Filter    │  Collapse progress bars and spinners
- └───────────────────┘
-     |
-     v
- ┌───────────────────┐
- │ Dedup Filter       │  Collapse repeated lines (3+ threshold)
- └────────────────��──┘
-     |
-     v
- ┌───────���───────────┐
- │ Command Filter     │  Git / npm / Cargo / Docker / Kubectl / Generic
- └───────────────────���
-     |
-     v
-  filtered output
-```
-
-**Universal filters** (ANSI, Progress, Dedup) run on every command. The **command-specific filter** is selected by `CommandKind::detect()` based on the binary name.
-
-### What Gets Filtered
-
-| Filter | Strips | Preserves |
-|--------|--------|-----------|
-| **ANSI** | CSI sequences, OSC, color codes, carriage returns | All text content |
-| **Progress** | Progress bars, Unicode spinners, percentage indicators | Final state |
-| **Dedup** | 3+ consecutive identical lines | First occurrence + count |
-| **Git** | Transfer stats (Enumerating/Counting/Compressing objects) | Branch names, errors, diffs, status |
-| **npm** | Timing logs, HTTP fetch, deprecation spam, peer dep warnings | Installed packages, errors, audit |
-| **Cargo** | Compiling/Checking/Fresh/Downloading per-crate lines | Errors, warnings, test results, Finished summary |
-| **Docker** | Layer cache, pull progress, digest lines, intermediate containers | Build steps, errors, final image ID |
-| **Kubectl** | klog verbose output, routine scheduling events | Pod status, errors, custom resources |
-| **Generic** | Decorative border lines (box-drawing characters) | Everything else (maximally conservative) |
-
----
-
-## Zero False Positive Guarantee
-
-The type system enforces this:
-
-```rust
-pub enum FilterResult {
-    Keep,                    // Definitely signal
-    Drop,                    // Definitely noise
-    Replace(String),         // Noise, but summarize
-    Uncertain,               // Not sure — ALWAYS passes through
-}
-```
-
-When a filter returns `Uncertain`, the pipeline keeps the original line unchanged. There is no "aggressive mode" that might lose signal. The benchmark suite verifies this automatically: every scenario has required signal strings that must appear in filtered output.
-
----
-
-## Install
-
-### From crates.io
-
-```bash
-cargo install cli-denoiser
-```
-
-### From GitHub releases
-
-Download the latest binary for your platform from [Releases](https://github.com/Orellius/cli-denoiser/releases):
-
-```bash
-# macOS (Apple Silicon)
-curl -L https://github.com/Orellius/cli-denoiser/releases/latest/download/cli-denoiser-aarch64-apple-darwin.tar.gz | tar xz
-sudo mv cli-denoiser /usr/local/bin/
-
-# macOS (Intel)
-curl -L https://github.com/Orellius/cli-denoiser/releases/latest/download/cli-denoiser-x86_64-apple-darwin.tar.gz | tar xz
-sudo mv cli-denoiser /usr/local/bin/
-
-# Linux (x86_64)
-curl -L https://github.com/Orellius/cli-denoiser/releases/latest/download/cli-denoiser-x86_64-unknown-linux-gnu.tar.gz | tar xz
-sudo mv cli-denoiser /usr/local/bin/
-```
-
-### From source
-
-```bash
-git clone https://github.com/Orellius/cli-denoiser.git
-cd cli-denoiser
-cargo install --path .
-```
-
-### Setup hooks (one command)
-
-```bash
-cli-denoiser install
-```
-
-This auto-detects and configures hooks for:
-- **Claude Code** — `PostToolUse` hooks on Bash, Read, and Grep tools
-- **Codex CLI** — `post_exec` hook on shell tool
-- **Gemini CLI** — `post_tool_use` hook on shell and bash tools
-
-To remove:
-
-```bash
-cli-denoiser uninstall
-```
-
----
-
-## Usage
-
-### As a command wrapper
-
-```bash
-cli-denoiser cargo build
-cli-denoiser npm install
-cli-denoiser docker build .
-cli-denoiser git push origin main
-```
-
-### As a pipe filter
-
-```bash
-cargo build 2>&1 | cli-denoiser filter --command cargo
-kubectl get events | cli-denoiser filter --command kubectl
-```
-
-### As an agent hook (recommended)
-
-```bash
-cli-denoiser install    # Install hooks for all detected agents
-# That's it — hooks run automatically on every tool call
-```
-
-### View savings
-
-```bash
-cli-denoiser gain                 # Last 30 days
-cli-denoiser gain --days 7        # Last 7 days
-cli-denoiser gain --json          # JSON output
-```
-
-### Daily report
-
-```bash
-cli-denoiser report               # Last 7 days
-cli-denoiser report --days 14     # Last 14 days
-cli-denoiser report --json        # JSON output
-```
-
-### Event log
-
-```bash
-cli-denoiser log                  # Last 20 events
-cli-denoiser log -n 50            # Last 50 events
-cli-denoiser log --json           # JSON output
-```
-
-### Run benchmarks
-
-```bash
-cli-denoiser bench                              # Print to terminal
-cli-denoiser bench --output bench-results.json  # Export JSON
-```
-
-### Debug mode
-
-```bash
-cli-denoiser --debug cargo build   # See which filters matched each line
-```
-
----
-
-## Development
-
-```bash
-# Run all 4 verification gates (same as CI)
-cargo clippy -- -D warnings
-cargo test
-cargo fmt --check
-cargo check
-
-# Run a single test
-cargo test drops_compiling_lines
-
-# Run benchmarks
-cargo run -- bench
-
-# Build release binary
-cargo build --release
-```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on adding new filters.
-
----
-
-## Contributing
-
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and guidelines.
-
-**Ideas for contributions:**
-- New command filters (pip, uv, yarn, gradle, terraform, ansible)
-- Windows support and testing
-- Integration with more agentic coding tools
-- Near-duplicate line detection
+| Component | Tech |
+|-----------|------|
+| Core | Rust, clap, serde |
+| Filters | ANSI, progress, dedup, git, npm, cargo, docker, kubectl |
+| Distribution | crates.io, GitHub Releases (macOS ARM/x64, Linux x64) |
 
 ---
 
