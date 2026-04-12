@@ -1,11 +1,7 @@
 use std::path::PathBuf;
 
-use super::{InstallResult, InstallStatus};
+use super::{AgentHookConfig, InstallResult, generic_install, generic_uninstall};
 
-const HOOK_MARKER: &str = "cli-denoiser";
-
-/// Claude Code stores settings in ~/.claude/settings.json
-/// Hook format: hooks.PostToolUse that pipes Bash output through cli-denoiser
 fn config_path() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_default()
@@ -15,184 +11,45 @@ fn config_path() -> PathBuf {
 
 #[must_use]
 pub fn install() -> InstallResult {
-    let path = config_path();
-    let agent = "Claude Code".to_string();
-
-    if !path.exists() {
-        return InstallResult {
-            agent,
-            config_path: path,
-            status: InstallStatus::ConfigNotFound,
-        };
-    }
-
-    let content = match std::fs::read_to_string(&path) {
-        Ok(c) => c,
-        Err(e) => {
-            return InstallResult {
-                agent,
-                config_path: path,
-                status: InstallStatus::Failed(e.to_string()),
-            };
-        }
-    };
-
-    if content.contains(HOOK_MARKER) {
-        return InstallResult {
-            agent,
-            config_path: path,
-            status: InstallStatus::AlreadyInstalled,
-        };
-    }
-
-    let mut settings: serde_json::Value = match serde_json::from_str(&content) {
-        Ok(v) => v,
-        Err(e) => {
-            return InstallResult {
-                agent,
-                config_path: path,
-                status: InstallStatus::Failed(format!("invalid JSON: {e}")),
-            };
-        }
-    };
-
-    // Add PostToolUse hook for Bash tool
-    let hooks = settings.as_object_mut().and_then(|obj| {
-        obj.entry("hooks")
-            .or_insert_with(|| serde_json::json!({}))
-            .as_object_mut()
-    });
-
-    let Some(hooks) = hooks else {
-        return InstallResult {
-            agent,
-            config_path: path,
-            status: InstallStatus::Failed("could not access hooks object".to_string()),
-        };
-    };
-
-    let post_tool = hooks
-        .entry("PostToolUse")
-        .or_insert_with(|| serde_json::json!([]));
-
-    // Hook into Bash tool (primary: terminal output filtering)
-    let bash_hook = serde_json::json!({
-        "matcher": "Bash",
-        "hooks": [{
-            "type": "command",
-            "command": "cli-denoiser --hook-mode",
-            "description": "cli-denoiser: filter terminal noise from Bash output"
-        }]
-    });
-
-    // Hook into Read tool (RTK gap: native tool filtering)
-    let read_hook = serde_json::json!({
-        "matcher": "Read",
-        "hooks": [{
-            "type": "command",
-            "command": "cli-denoiser --hook-mode",
-            "description": "cli-denoiser: filter noise from file reads"
-        }]
-    });
-
-    // Hook into Grep tool (RTK gap: native tool filtering)
-    let grep_hook = serde_json::json!({
-        "matcher": "Grep",
-        "hooks": [{
-            "type": "command",
-            "command": "cli-denoiser --hook-mode",
-            "description": "cli-denoiser: filter noise from grep results"
-        }]
-    });
-
-    if let Some(arr) = post_tool.as_array_mut() {
-        arr.push(bash_hook);
-        arr.push(read_hook);
-        arr.push(grep_hook);
-    }
-
-    match write_json(&path, &settings) {
-        Ok(()) => InstallResult {
-            agent,
-            config_path: path,
-            status: InstallStatus::Installed,
-        },
-        Err(e) => InstallResult {
-            agent,
-            config_path: path,
-            status: InstallStatus::Failed(e),
-        },
-    }
+    generic_install(AgentHookConfig {
+        agent_name: "Claude Code".to_string(),
+        config_path: config_path(),
+        hooks_key: "hooks".to_string(),
+        entries_key: "PostToolUse".to_string(),
+        hook_entries: vec![
+            serde_json::json!({
+                "matcher": "Bash",
+                "hooks": [{
+                    "type": "command",
+                    "command": "cli-denoiser --hook-mode",
+                    "description": "cli-denoiser: filter terminal noise from Bash output"
+                }]
+            }),
+            serde_json::json!({
+                "matcher": "Read",
+                "hooks": [{
+                    "type": "command",
+                    "command": "cli-denoiser --hook-mode",
+                    "description": "cli-denoiser: filter noise from file reads"
+                }]
+            }),
+            serde_json::json!({
+                "matcher": "Grep",
+                "hooks": [{
+                    "type": "command",
+                    "command": "cli-denoiser --hook-mode",
+                    "description": "cli-denoiser: filter noise from grep results"
+                }]
+            }),
+        ],
+    })
 }
 
 #[must_use]
 pub fn uninstall() -> InstallResult {
-    let path = config_path();
-    let agent = "Claude Code".to_string();
-
-    if !path.exists() {
-        return InstallResult {
-            agent,
-            config_path: path,
-            status: InstallStatus::ConfigNotFound,
-        };
-    }
-
-    let content = match std::fs::read_to_string(&path) {
-        Ok(c) => c,
-        Err(e) => {
-            return InstallResult {
-                agent,
-                config_path: path,
-                status: InstallStatus::Failed(e.to_string()),
-            };
-        }
-    };
-
-    if !content.contains(HOOK_MARKER) {
-        return InstallResult {
-            agent,
-            config_path: path,
-            status: InstallStatus::ConfigNotFound,
-        };
-    }
-
-    let mut settings: serde_json::Value = match serde_json::from_str(&content) {
-        Ok(v) => v,
-        Err(e) => {
-            return InstallResult {
-                agent,
-                config_path: path,
-                status: InstallStatus::Failed(format!("invalid JSON: {e}")),
-            };
-        }
-    };
-
-    // Remove our hook entries
-    if let Some(hooks) = settings.pointer_mut("/hooks/PostToolUse")
-        && let Some(arr) = hooks.as_array_mut()
-    {
-        arr.retain(|entry| {
-            let s = entry.to_string();
-            !s.contains(HOOK_MARKER)
-        });
-    }
-
-    match write_json(&path, &settings) {
-        Ok(()) => InstallResult {
-            agent,
-            config_path: path,
-            status: InstallStatus::Installed,
-        },
-        Err(e) => InstallResult {
-            agent,
-            config_path: path,
-            status: InstallStatus::Failed(e),
-        },
-    }
-}
-
-fn write_json(path: &std::path::Path, value: &serde_json::Value) -> Result<(), String> {
-    let json = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
-    std::fs::write(path, json).map_err(|e| e.to_string())
+    generic_uninstall(
+        "Claude Code".to_string(),
+        config_path(),
+        "/hooks/PostToolUse",
+    )
 }

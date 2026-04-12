@@ -1,6 +1,6 @@
 use std::process::Stdio;
 
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
 use tokio::process::Command;
 
 use crate::pipeline::{Pipeline, PipelineResult};
@@ -28,7 +28,8 @@ pub async fn run_filtered(
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
 
-    let (stdout_lines, stderr_lines) = tokio::join!(read_lines(stdout), read_lines_stderr(stderr),);
+    let (stdout_lines, stderr_lines) =
+        tokio::join!(read_lines_from(stdout), read_lines_from(stderr),);
 
     let status = child.wait().await.map_err(|e| StreamError::WaitFailed {
         command: command.to_string(),
@@ -50,22 +51,7 @@ pub async fn run_filtered(
     })
 }
 
-async fn read_lines(reader: Option<tokio::process::ChildStdout>) -> Vec<String> {
-    let Some(reader) = reader else {
-        return Vec::new();
-    };
-    let mut lines = Vec::new();
-    let mut buf_reader = BufReader::new(reader);
-    let mut line = String::new();
-    while buf_reader.read_line(&mut line).await.unwrap_or(0) > 0 {
-        lines.push(line.trim_end_matches('\n').to_string());
-        line.clear();
-    }
-    lines
-}
-
-// Overload for stderr (different type)
-async fn read_lines_stderr(reader: Option<tokio::process::ChildStderr>) -> Vec<String> {
+async fn read_lines_from<R: AsyncRead + Unpin>(reader: Option<R>) -> Vec<String> {
     let Some(reader) = reader else {
         return Vec::new();
     };

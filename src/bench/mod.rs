@@ -2,17 +2,7 @@ mod corpus;
 
 use std::time::Instant;
 
-use crate::filters::ansi::AnsiFilter;
-use crate::filters::cargo::CargoFilter;
-use crate::filters::dedup::DedupFilter;
-use crate::filters::docker::DockerFilter;
-use crate::filters::generic::GenericFilter;
-use crate::filters::git::GitFilter;
-use crate::filters::kubectl::KubectlFilter;
-use crate::filters::npm::NpmFilter;
-use crate::filters::progress::ProgressFilter;
-use crate::filters::{CommandKind, Filter};
-use crate::pipeline::Pipeline;
+use crate::build_pipeline;
 
 /// Full benchmark results.
 #[derive(Debug, serde::Serialize)]
@@ -68,7 +58,7 @@ pub fn run_all() -> BenchResults {
     let mut results = Vec::with_capacity(scenarios_def.len());
 
     for scenario in &scenarios_def {
-        let pipeline = build_bench_pipeline(&scenario.kind);
+        let pipeline = build_pipeline(&scenario.kind, false);
 
         let start = Instant::now();
         let pipe_result = pipeline.process(&scenario.input);
@@ -117,6 +107,8 @@ pub fn run_all() -> BenchResults {
         (total_savings as f64 / total_original as f64) * 100.0
     };
 
+    let zero_false_positives = results.iter().all(|r| r.signal_preserved);
+
     BenchResults {
         version: env!("CARGO_PKG_VERSION").to_string(),
         timestamp: chrono::Utc::now().to_rfc3339(),
@@ -127,17 +119,7 @@ pub fn run_all() -> BenchResults {
             total_savings,
             overall_savings_percent: overall_pct,
             avg_latency_us: avg_latency,
-            zero_false_positives: scenarios_def
-                .iter()
-                .zip(
-                    // We need to re-check since results moved
-                    scenarios_def.iter().map(|s| {
-                        let p = build_bench_pipeline(&s.kind);
-                        let r = p.process(&s.input);
-                        s.required_signals.iter().all(|sig| r.output.contains(sig))
-                    }),
-                )
-                .all(|(_, preserved)| preserved),
+            zero_false_positives,
         },
     }
 }
@@ -182,22 +164,4 @@ pub fn print_summary(results: &BenchResults) {
         "\n  Avg latency: {:.0}us | Zero false positives: {}",
         results.totals.avg_latency_us, results.totals.zero_false_positives
     );
-}
-
-fn build_bench_pipeline(kind: &CommandKind) -> Pipeline {
-    let mut pipeline = Pipeline::new();
-    pipeline.add_filter(Box::new(AnsiFilter));
-    pipeline.add_filter(Box::new(ProgressFilter));
-    pipeline.add_filter(Box::new(DedupFilter::new()));
-
-    let specific: Box<dyn Filter> = match kind {
-        CommandKind::Git => Box::new(GitFilter),
-        CommandKind::Npm => Box::new(NpmFilter),
-        CommandKind::Cargo => Box::new(CargoFilter),
-        CommandKind::Docker => Box::new(DockerFilter),
-        CommandKind::Kubectl => Box::new(KubectlFilter),
-        CommandKind::Unknown => Box::new(GenericFilter),
-    };
-    pipeline.add_filter(specific);
-    pipeline
 }

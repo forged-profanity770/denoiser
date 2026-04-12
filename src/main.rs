@@ -2,21 +2,9 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
-use cli_denoiser::bench;
-use cli_denoiser::filters::ansi::AnsiFilter;
-use cli_denoiser::filters::cargo::CargoFilter;
-use cli_denoiser::filters::dedup::DedupFilter;
-use cli_denoiser::filters::docker::DockerFilter;
-use cli_denoiser::filters::generic::GenericFilter;
-use cli_denoiser::filters::git::GitFilter;
-use cli_denoiser::filters::kubectl::KubectlFilter;
-use cli_denoiser::filters::npm::NpmFilter;
-use cli_denoiser::filters::progress::ProgressFilter;
-use cli_denoiser::filters::{CommandKind, Filter};
-use cli_denoiser::hooks;
-use cli_denoiser::pipeline::Pipeline;
-use cli_denoiser::stream;
+use cli_denoiser::filters::CommandKind;
 use cli_denoiser::tracker::{FilterEvent, TrackerDb};
+use cli_denoiser::{bench, build_pipeline, hooks, stream};
 
 #[derive(Parser)]
 #[command(
@@ -53,6 +41,9 @@ enum Commands {
         /// Number of days to show stats for
         #[arg(short, long, default_value = "30")]
         days: u32,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Filter stdin (pipe mode)
     Filter {
@@ -71,12 +62,18 @@ enum Commands {
         /// Number of days to show
         #[arg(short, long, default_value = "7")]
         days: u32,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Show recent filter event log
     Log {
         /// Number of recent events to show
         #[arg(short = 'n', long, default_value = "20")]
         limit: u32,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -94,11 +91,11 @@ async fn main() -> ExitCode {
     match cli.command {
         Some(Commands::Install) => run_install(),
         Some(Commands::Uninstall) => run_uninstall(),
-        Some(Commands::Gain { days }) => run_gain(days),
+        Some(Commands::Gain { days, json }) => run_gain(days, json),
         Some(Commands::Filter { command }) => run_filter_stdin(command.as_deref(), debug),
         Some(Commands::Bench { output }) => run_bench(output.as_deref()),
-        Some(Commands::Report { days }) => run_report(days),
-        Some(Commands::Log { limit }) => run_log(limit),
+        Some(Commands::Report { days, json }) => run_report(days, json),
+        Some(Commands::Log { limit, json }) => run_log(limit, json),
         None => {
             if cli.args.is_empty() {
                 eprintln!("Usage: cli-denoiser <command> [args...]");
@@ -208,7 +205,7 @@ fn run_uninstall() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn run_gain(days: u32) -> ExitCode {
+fn run_gain(days: u32, json: bool) -> ExitCode {
     let db = match TrackerDb::open() {
         Ok(db) => db,
         Err(e) => {
@@ -226,6 +223,14 @@ fn run_gain(days: u32) -> ExitCode {
             return ExitCode::from(1);
         }
     };
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&summary).unwrap_or_default()
+        ); // allow-unwrap: serialization of known types
+        return ExitCode::SUCCESS;
+    }
 
     if summary.total_events == 0 {
         println!("No filter events recorded in the last {days} days.");
@@ -264,29 +269,6 @@ fn run_gain(days: u32) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn build_pipeline(kind: &CommandKind, debug: bool) -> Pipeline {
-    let mut pipeline = Pipeline::new();
-    pipeline.set_debug(debug);
-
-    // Universal filters (always applied)
-    pipeline.add_filter(Box::new(AnsiFilter));
-    pipeline.add_filter(Box::new(ProgressFilter));
-    pipeline.add_filter(Box::new(DedupFilter::new()));
-
-    // Command-specific filters
-    let specific: Box<dyn Filter> = match kind {
-        CommandKind::Git => Box::new(GitFilter),
-        CommandKind::Npm => Box::new(NpmFilter),
-        CommandKind::Cargo => Box::new(CargoFilter),
-        CommandKind::Docker => Box::new(DockerFilter),
-        CommandKind::Kubectl => Box::new(KubectlFilter),
-        CommandKind::Unknown => Box::new(GenericFilter),
-    };
-    pipeline.add_filter(specific);
-
-    pipeline
-}
-
 fn run_bench(output_path: Option<&str>) -> ExitCode {
     let results = bench::run_all();
     let json = match serde_json::to_string_pretty(&results) {
@@ -312,7 +294,7 @@ fn run_bench(output_path: Option<&str>) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn run_report(days: u32) -> ExitCode {
+fn run_report(days: u32, json: bool) -> ExitCode {
     let db = match TrackerDb::open() {
         Ok(db) => db,
         Err(e) => {
@@ -328,6 +310,14 @@ fn run_report(days: u32) -> ExitCode {
             return ExitCode::from(1);
         }
     };
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&daily).unwrap_or_default()
+        ); // allow-unwrap: serialization of known types
+        return ExitCode::SUCCESS;
+    }
 
     if daily.is_empty() {
         println!("No filter events in the last {days} days.");
@@ -367,7 +357,7 @@ fn run_report(days: u32) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn run_log(limit: u32) -> ExitCode {
+fn run_log(limit: u32, json: bool) -> ExitCode {
     let db = match TrackerDb::open() {
         Ok(db) => db,
         Err(e) => {
@@ -383,6 +373,14 @@ fn run_log(limit: u32) -> ExitCode {
             return ExitCode::from(1);
         }
     };
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&events).unwrap_or_default()
+        ); // allow-unwrap: serialization of known types
+        return ExitCode::SUCCESS;
+    }
 
     if events.is_empty() {
         println!("No filter events recorded yet.");
