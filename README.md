@@ -1,13 +1,19 @@
-# CLI Denoiser
+# cli-denoiser (Archived)
 
-Strip terminal noise for LLM agents. Zero false positives. Rust.
+> Strip terminal noise for LLM agents. Zero false positives.
 
-Two-pass filter pipeline that removes progress bars, ANSI codes, duplicate lines, and verbose build output before it reaches your agent. Supports git, npm, cargo, docker, kubectl.
+## What This Was
+
+A Rust library that cleans terminal output before feeding it to LLM agents. Removes ANSI codes, progress bars, spinners, and other visual noise that confuses language models while preserving meaningful content with zero false positives.
 
 ## Stack
 
-Rust, clap, serde. Available on [crates.io](https://crates.io/crates/cli-denoiser).
+- Rust
 
-## License
+## Usage
 
-[MIT](LICENSE)
+This project is archived and no longer maintained.
+
+---
+
+*Archived April 2026. See [Orellius](https://github.com/Orellius) for active work.*
